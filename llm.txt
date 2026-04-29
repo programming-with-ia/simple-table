@@ -1,213 +1,231 @@
-# Simple Table for React - LLM Instruction Guide
+# Simple Table for React - Comprehensive Developer Guide
 
-This document provides a comprehensive understanding of the `@simple-table/react` package, built to help AI models like yourself write efficient, correct, and robust code using the `SimpleTable` component. It synthesizes the framework API, typing systems, features, and best practices available in the project.
+This document provides a highly detailed, exhaustive technical guide on the `@simple-table/react` package. It includes all available props, configuration interfaces, typescript overrides, internal behavior details, and customization options.
 
-## 1. Overview and Core Philosophy
+## 1. Overview and Architecture
 
-`SimpleTable` is a lightweight, high-performance data grid and table component for modern React apps (React 18+, Next.js, Remix, Vite). The core logic is built in a vanilla framework-agnostic package (`simple-table-core`), and the React package (`@simple-table/react`) acts as a wrapper that maps standard core properties into React paradigms, enabling React components for renderers.
+`SimpleTable` is a high-performance data grid built with a vanilla framework-agnostic core (`simple-table-core`) and a React wrapper (`@simple-table/react`).
 
-### Core Architecture
-- **DOM Container Strategy:** The React `SimpleTable` component attaches a vanilla SimpleTable instance to a container `div` via a ref (`containerRef`).
-- **Imperative API:** It exposes the `TableAPI` (from `simple-table-core`) back to the parent React component through React's `forwardRef`.
-- **Framework Portals:** It uses a custom `ImperativeDomSlot` strategy alongside `wrapReactRenderer` to seamlessly convert React components (used as renderers for cells, headers, and footers) into raw DOM nodes that the vanilla table expects.
-- **Component Re-rendering:** React's virtual DOM is bypassed for inner table updates. Data updates trigger vanilla methods (`api.updateData()`), and config changes rebuild or update the table instance, keeping performance blazingly fast.
+- **DOM Bypass:** It updates data and table state without re-rendering the React virtual DOM.
+- **Portals for Renderers:** Custom renderers (`cellRenderer`, `headerRenderer`, `footerRenderer`) written in React are portaled seamlessly into the core vanilla instance via `ImperativeDomSlot`.
 
-## 2. Installation and Basic Setup
+## 2. Main Component Props: `SimpleTableReactProps`
 
-### Dependencies
-```bash
-npm install @simple-table/react
+The main component is `<SimpleTable />`. Here is the exhaustive list of every prop it accepts (derived from `SimpleTableProps` and mapped to React types).
+
+### 2.1 Data & Identification Props
+- `rows` (`Row[] | object[]`): The data array. You MUST use the `asRows()` helper to cast your objects to the internal `Row` format to avoid TypeScript errors.
+- `getRowId` (`(row: Row) => string | number`): Required function to uniquely identify rows (crucial for React diffing, updates, and selections).
+- `defaultHeaders` (`ReadonlyArray<ReactHeaderObject>`): The exhaustive array of column definitions (see **ReactHeaderObject** section).
+- `isLoading` (`boolean`): Renders the loading skeleton.
+- `serverSidePagination` (`boolean`): Disables internal pagination logic, letting your app pass pre-sliced `rows` and `totalRowCount`.
+- `totalRowCount` (`number`): The total count of rows (required if `serverSidePagination` is true).
+
+### 2.2 Table Layout & Dimensions
+- `height` (`string | number`): Fixed height (e.g., "400px", 400).
+- `maxHeight` (`string | number`): Maximum height. Enables adaptive height with virtualization.
+- `className` (`string`): Wrapper CSS class.
+- `autoExpandColumns` (`boolean`): If true, converts pixel widths to `fr` proportional units to fill the table width.
+- `columnBorders` (`boolean`): Show vertical borders.
+- `hideHeader` (`boolean`): Hide the column headers.
+- `hideFooter` (`boolean`): Hide the footer entirely.
+
+### 2.3 Interactive Features & Toggles
+- `columnResizing` (`boolean`): Enable drag-to-resize columns.
+- `columnReordering` (`boolean`): Enable drag-and-drop column ordering.
+- `editColumns` (`boolean`): Enable column visibility/pinning editor popup.
+- `editColumnsInitOpen` (`boolean`): Open the column editor on mount.
+- `enableHeaderEditing` (`boolean`): Allow clicking active headers to rename them.
+- `enableRowSelection` (`boolean`): Show checkboxes for row selection.
+- `selectableCells` (`boolean`): Allow selecting individual cells.
+- `selectableColumns` (`boolean`): Allow selecting entire columns.
+- `shouldPaginate` (`boolean`): Enable pagination.
+- `rowsPerPage` (`number`): Number of rows per page.
+- `expandAll` (`boolean`): Expand all row groups automatically.
+- `enableStickyParents` (`boolean`): Keep parent rows stuck to the top when scrolling down grouped rows.
+- `cellUpdateFlash` (`boolean`): Flash cells briefly when data updates.
+- `animations` (`AnimationsConfig`): Configuration for FLIP-style sort and reorder animations. Default: `enabled=true`, `duration=240ms`.
+
+### 2.4 Event Callbacks
+- `onCellClick` (`(props: CellClickProps) => void`): Fired on cell click.
+- `onCellEdit` (`(props: CellChangeProps) => void`): Fired when a cell's value is edited via built-in editors.
+- `onColumnOrderChange` (`(headers: ReactHeaderObject[]) => void`): Fired when column order changes.
+- `onColumnSelect` (`(header: ReactHeaderObject) => void`): Fired when a column header is selected.
+- `onColumnVisibilityChange` (`(state: ColumnVisibilityState) => void`): Fired when a column is hidden/shown.
+- `onColumnWidthChange` (`(headers: ReactHeaderObject[]) => void`): Fired on resize.
+- `onFilterChange` (`(filters: TableFilterState) => void`): Fired when a filter changes.
+- `onGridReady` (`() => void`): Fired when the grid finishes mounting.
+- `onHeaderEdit` (`(header: ReactHeaderObject, newLabel: string) => void`): Fired on header label rename.
+- `onLoadMore` (`() => void`): Infinite scroll trigger (when reaching the bottom).
+- `onNextPage` (`(page: number) => void`): Custom override for internal pagination control.
+- `onPageChange` (`(page: number) => void | Promise<void>`): Triggered when page changes.
+- `onRowGroupExpand` (`(props: OnRowGroupExpandProps) => void`): Fired on group expand/collapse.
+- `onRowSelectionChange` (`(props: RowSelectionChangeProps) => void`): Triggered when checkboxes are toggled.
+- `onSortChange` (`(sort: SortColumn | null) => void`): Fired on sort change.
+
+### 2.5 State Management Overrides
+- `externalFilterHandling` (`boolean`): If true, stops internal filtering so you can filter data upstream.
+- `externalSortHandling` (`boolean`): If true, stops internal sorting so you can sort upstream.
+- `initialSortColumn` (`string`): Accessor ID of the column to sort by default.
+- `initialSortDirection` (`"asc" | "desc"`): Default direction.
+- `quickFilter` (`QuickFilterConfig`): Configuration for global search.
+- `rowGrouping` (`Accessor[]`): Array of keys used for hierarchical row grouping.
+
+### 2.6 Styling and Theming
+- `theme` (`"light" | "dark"`): Default color schemes.
+- `customTheme` (`CustomThemeProps`): Overrides for variables. Example fields: `fontFamily`, `headerBackgroundColor`, `rowBackgroundColor`, `textColor`, `borderColor`, `primaryColor`.
+- `useHoverRowBackground` (`boolean`): Highlight rows on hover.
+- `useOddColumnBackground` (`boolean`): Alternate background for columns.
+- `useOddEvenRowBackground` (`boolean`): Alternate row stripes (zebra).
+- `icons` (`ReactIconsConfig`): Provide custom SVG/React nodes for core icons.
+
+### 2.7 React Renderers (Override Native Ones)
+- `cellRenderer` (Column-level)
+- `headerRenderer` (Column-level)
+- `footerRenderer` (`ReactFooterRenderer`): Custom table footer component.
+- `loadingStateRenderer` (`ReactLoadingStateRenderer`): Custom skeleton loader.
+- `errorStateRenderer` (`ReactErrorStateRenderer`): Custom error UI.
+- `emptyStateRenderer` (`ReactEmptyStateRenderer`): Nested empty child state.
+- `tableEmptyStateRenderer` (`ReactNode`): Global table empty state.
+- `headerDropdown` (`ReactHeaderDropdown`): Custom filter/options dropdown component.
+- `columnEditorConfig` (`ReactColumnEditorConfig`): Custom renderers for the column editor popout.
+
+## 3. Column Configuration: `ReactHeaderObject`
+
+When defining `columns` (`defaultHeaders`), use `ReactHeaderObject<T>`.
+
+### 3.1 Identifiers & Sizing
+- `accessor` (`string | keyof Row`): Key inside the data object. Supports dot notation (`user.name`) and array index notation (`tags[0]`).
+- `headerName` / `label` (`string`): The visible text of the column header.
+- `width` (`number | string`): Starting width (e.g., 150, "100px", "2fr").
+- `minWidth` (`number | string`): Minimum resize boundary.
+- `maxWidth` (`number | string`): Maximum resize boundary.
+
+### 3.2 Toggles & Behaviors
+- `hide` (`boolean`): Default hidden state.
+- `pinned` (`"left" | "right"`): Sticky column.
+- `disableReorder` (`boolean`): Prevent user from dragging this column.
+- `isEssential` (`boolean`): Force the column to stay visible and un-hideable.
+- `isSortable` (`boolean`): Can be clicked to sort.
+- `sortingOrder` (`("asc" | "desc" | null)[]`): Custom sort cycle. Default `["asc", "desc", null]`.
+- `filterable` (`boolean`): Enable filtering icon/dropdown.
+- `collapsible` (`boolean`): Enable expanding/collapsing grouped columns.
+- `collapseDefault` (`boolean`): Starts collapsed.
+- `isEditable` (`boolean`): Allow cell editing (based on type).
+- `isSelectionColumn` (`boolean`): Dedicated checkbox column.
+- `expandable` (`boolean`): Used for tree-data/nested data rows.
+
+### 3.3 Types & Formatting
+- `type` (`"string" | "number" | "boolean" | "date" | "enum" | "lineAreaChart" | "barChart" | "other"`): Impacts default renderers and editors.
+- `align` (`"left" | "center" | "right"`): Text alignment.
+- `enumOptions` (`EnumOption[]`): Required if `type` is `"enum"`. Array of `{ value, label, color? }`.
+- `valueGetter` (`(props: ValueGetterProps) => CellValue`): Extracts pure values for sorting/filtering.
+- `valueFormatter` (`(props: ValueFormatterProps) => string | number`): Formats value just for visual display.
+- `exportValueGetter` (`(props: ExportValueProps) => string | number`): Custom formatter for CSV.
+- `quickFilterGetter` (`(row, value) => string`): Extractor for global search indexing.
+
+### 3.4 Data Relationships
+- `children` (`ReactHeaderObject[]`): Group columns under this parent header.
+- `nestedTable` (`Omit<SimpleTableReactProps, "rows" | ...>`): Renders an entirely new sub-table inside expanded child rows.
+
+### 3.5 Specific Renderers
+- `cellRenderer` (`ReactCellRenderer`): Render custom JSX inside the cell. Receives `{ row, value, colIndex, rowIndex }`.
+- `headerRenderer` (`ReactHeaderRenderer`): Custom JSX for the header cell.
+- `chartOptions`: If type is chart, configure `min`, `max`, `color`, `fillOpacity`, `gap`, `strokeWidth`.
+
+## 4. The `TableAPI` (Imperative Ref API)
+
+Because SimpleTable optimizes performance outside of React state, use the `TableAPI` to control it imperatively via `ref`.
+
+```tsx
+const tableRef = useRef<TableAPI>(null);
+
+// Inside an effect or callback:
+tableRef.current?.exportToCSV({ filename: "report.csv" });
 ```
 
-### Minimal Setup
+### Full API List
+- `updateData(props: { data: Row[] })`: Instantly swap data.
+- `getVisibleRows()`: Get rows currently rendered.
+- `getAllRows()`: Get all data rows.
+- `getHeaders()`: Get current column configurations.
+- `exportToCSV(props?: { filename?: string })`: Download CSV.
+- `getSortState()` / `applySortState({ accessor, direction })`: Control sort.
+- `getPinnedState()` / `applyPinnedState(state)`: Control pinned columns.
+- `getFilterState()` / `applyFilter(condition)` / `clearFilter(accessor)` / `clearAllFilters()`: Control filtering.
+- `getCurrentPage()` / `getTotalPages()` / `setPage(page)`: Control pagination.
+- `expandAll()` / `collapseAll()` / `expandDepth(depth)` / `collapseDepth(depth)` / `toggleDepth(depth)`: Tree/group expansion.
+- `toggleColumnEditor(open?: boolean)`: Open/close column visibility pane.
+- `applyColumnVisibility(visibilityMap)`: Show/hide cols programmatically.
+- `resetColumns()`: Restore defaults.
+- `setQuickFilter(text: string)`: Trigger global search.
+- `getSelectedCells()` / `clearSelection()` / `selectCell(cell)`: Selection API.
 
-Import `SimpleTable` and `asRows` from `@simple-table/react`. Standard CSS is imported from `simple-table-core/styles.css`.
+## 5. Usage Example
 
 ```tsx
 import React, { useRef, useState } from "react";
 import { SimpleTable, ReactHeaderObject, TableAPI, asRows } from "@simple-table/react";
 import "simple-table-core/styles.css";
 
-// 1. Define your data model
-type User = {
+interface User {
   id: string;
   name: string;
-  age: number;
-};
+  status: "active" | "inactive";
+  score: number;
+}
 
-// 2. Define standard columns using ReactHeaderObject
 const columns: ReactHeaderObject<User>[] = [
-  { headerName: "ID", field: "id", width: 100 },
-  { headerName: "Name", field: "name", width: 200, sortable: true },
-  { headerName: "Age", field: "age", width: 100, align: "right" }
+  { accessor: "id", label: "ID", width: 80, isEssential: true, pinned: "left" },
+  { accessor: "name", label: "Name", width: "1fr", isSortable: true, filterable: true },
+  {
+    accessor: "status",
+    label: "Status",
+    width: 120,
+    type: "enum",
+    enumOptions: [
+      { value: "active", label: "Active", color: "green" },
+      { value: "inactive", label: "Inactive", color: "red" }
+    ],
+    cellRenderer: ({ value }) => <b>{String(value).toUpperCase()}</b>
+  },
+  {
+    accessor: "score",
+    label: "Score",
+    width: 100,
+    type: "number",
+    align: "right",
+    valueFormatter: ({ value }) => `${value} pts`
+  }
 ];
 
-export default function MyTable() {
+export default function App() {
   const tableRef = useRef<TableAPI>(null);
-
   const [data] = useState<User[]>([
-    { id: "1", name: "Alice", age: 28 },
-    { id: "2", name: "Bob", age: 34 }
+    { id: "1", name: "Alice", status: "active", score: 95 },
+    { id: "2", name: "Bob", status: "inactive", score: 40 }
   ]);
 
   return (
-    <div style={{ height: "400px", width: "100%" }}>
+    <div style={{ height: "600px" }}>
+      <button onClick={() => tableRef.current?.exportToCSV()}>Export</button>
       <SimpleTable
         ref={tableRef}
-        columns={columns}
-        // asRows ensures the data satisfies the expected Row format internally
-        data={asRows(data)}
-        getRowId={(row) => row.id} // Essential for tracking and updates
-        theme="light" // or "dark"
+        rows={asRows(data)}
+        getRowId={(r) => r.id}
+        defaultHeaders={columns}
+        theme="dark"
+        columnResizing={true}
+        enableRowSelection={true}
+        shouldPaginate={true}
+        rowsPerPage={50}
       />
     </div>
   );
 }
 ```
 
-## 3. The React Header Object & Custom Renderers
-
-Unlike the vanilla `SimpleTableConfig`, the React package introduces specific types that allow passing native React components. These are strictly typed in `ReactHeaderObject<TRow>`.
-
-### Customizing Cells with React Components
-
-You can define a `cellRenderer` inside the column configuration that returns standard JSX.
-
-```tsx
-import { ReactHeaderObject, ReactCellRenderer } from "@simple-table/react";
-
-const StatusRenderer: ReactCellRenderer<User> = ({ value, row }) => {
-  const color = value === "active" ? "green" : "red";
-  return <span style={{ color }}>{value}</span>;
-};
-
-const columns: ReactHeaderObject<User>[] = [
-  // ...other columns
-  {
-    headerName: "Status",
-    field: "status",
-    cellRenderer: StatusRenderer
-  }
-];
-```
-
-### Customizing Headers and Footers
-
-Similarly, headers and footers support native React renderers.
-
-```tsx
-const columns: ReactHeaderObject<User>[] = [
-  {
-    headerName: "Revenue",
-    field: "revenue",
-    headerRenderer: ({ column }) => <strong>{column.headerName} 💰</strong>,
-    footerRenderer: ({ column }) => <span>Total: $1000</span>
-  }
-];
-```
-
-## 4. Understanding the Imperative TableAPI
-
-Because `SimpleTable` optimizes updates by bypassing React state where possible, it provides a `TableAPI` object accessible via `useRef`. This allows programmatic control over the table.
-
-```tsx
-const tableRef = useRef<TableAPI>(null);
-
-// Example uses:
-const handleExport = () => tableRef.current?.exportToCSV("users.csv");
-const selectAll = () => tableRef.current?.selectAllFilteredRows();
-const getSelectedData = () => tableRef.current?.getSelectedRows();
-```
-
-### Commonly Used API Methods:
-- `exportToCSV(filename?: string)`
-- `getSelectedRows()`
-- `selectAllFilteredRows()`
-- `deselectAllRows()`
-- `collapseAllGroups()` / `expandAllGroups()`
-
-## 5. Advanced Features Configuration
-
-`SimpleTable` supports advanced features out-of-the-box through its configuration props.
-
-### 5.1 Pagination
-Pagination can be enabled via `pagination` and `paginationPageSize`.
-
-```tsx
-<SimpleTable
-  columns={columns}
-  data={asRows(data)}
-  getRowId={(row) => row.id}
-  pagination={true}
-  paginationPageSize={50}
-/>
-```
-
-### 5.2 Row Selection
-Enable checkboxes and manage selection.
-
-```tsx
-<SimpleTable
-  columns={columns}
-  data={asRows(data)}
-  getRowId={(row) => row.id}
-  rowSelection="multiple" // 'single' | 'multiple'
-  onRowSelectionChange={(selectedIds) => console.log("Selected IDs:", selectedIds)}
-/>
-```
-
-### 5.3 Quick Filter (Global Search)
-Enable global table search.
-
-```tsx
-const [search, setSearch] = useState("");
-
-<input value={search} onChange={(e) => setSearch(e.target.value)} />
-
-<SimpleTable
-  columns={columns}
-  data={asRows(data)}
-  getRowId={(row) => row.id}
-  quickFilterText={search} // Automatically filters rows matching the text
-/>
-```
-
-### 5.4 Themeing
-Simple Table supports simple light/dark modes or full custom theming.
-
-```tsx
-<SimpleTable
-  // ...
-  theme="dark" // Default light theme can be overwritten
-  // Or provide an object
-  customTheme={{
-    fontFamily: "Inter, sans-serif",
-    headerBackgroundColor: "#1e1e1e",
-    rowBackgroundColor: "#121212",
-    textColor: "#ffffff"
-  }}
-/>
-```
-
-### 5.5 Animations and UI Feedback
-Enable built-in cell flashing for real-time data updates.
-
-```tsx
-<SimpleTable
-  // ...
-  enableCellAnimations={true} // Flashes green for increase, red for decrease on update
-/>
-```
-
-## 6. Performance Considerations
-- **Use `asRows(data)`:** Always pass your data through `asRows()` when supplying the `data` prop.
-- **Reference Equality:** Maintain reference equality for `columns` (use `useMemo` or declare them outside the component). Passing a new array of columns on every render forces the table to unnecessarily rebuild.
-- **Data Updates:** To update data, update the React state passed to `data` as usual. The `SimpleTable` component detects data reference changes and effectively calls the internal Vanilla instance without remounting DOM elements.
-
-## 7. Typing Guidelines for LLMs
-- Always use `ReactHeaderObject<YourModel>` for column definitions. Do not use `ColumnType` or `SimpleTableConfig` from `simple-table-core` directly when constructing React views.
-- Make sure to import types correctly:
-  - `TableAPI`, `asRows` from `@simple-table/react`
-  - Renderers: `ReactCellRenderer`, `ReactHeaderRenderer`, `ReactFooterRenderer` from `@simple-table/react`
-
-By following these principles, you will seamlessly generate production-grade table components utilizing Simple Table in React.
+## 6. Typing Guidelines
+- ALWAYS cast generic objects to rows using `asRows(data)`.
+- Use `ReactHeaderObject<TModel>` instead of `HeaderObject` or `ColumnType` when dealing with the React wrapper.
+- Use the imperative `TableAPI` for programmatic actions to avoid unnecessary React re-renders.
